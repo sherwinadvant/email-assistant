@@ -8,7 +8,7 @@ from gmail_reader import fetch_meeting_emails
 print(" Authenticating with Gmail...")
 print("   (A browser window will open on first run — log in and grant access)\n")
 
-emails = fetch_meeting_emails(max_results=2)
+emails = fetch_meeting_emails(max_results=10)
 
 if not emails:
     print("!!  No meeting-related emails found, or authentication failed.")

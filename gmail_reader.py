@@ -20,7 +20,7 @@ SCOPES = [
 MEETING_KEYWORDS = [
     'meeting', 'schedule', 'reschedule', 'postpone', 'prepone',
     'call', 'sync', 'standup', 'interview', 'appointment',
-    'availability', 'invite', 'calendar', 'zoom', 'teams', 'meet'
+    'availability', 'invite', 'calendar', 'zoom'
 ]
 
 def get_gmail_service():
@@ -38,7 +38,7 @@ def get_gmail_service():
         else:
             if not os.path.exists('credentials.json'):
                 raise FileNotFoundError(
-                    "❌ credentials.json not found!\n"
+                    " credentials.json not found!\n"
                     "   Please download it from Google Cloud Console:\n"
                     "   1. Go to console.cloud.google.com\n"
                     "   2. Create a project → Enable Gmail + Calendar APIs\n"
@@ -82,7 +82,7 @@ def fetch_meeting_emails(max_results=10):
         print(e)
         return []
 
-    query = ' OR '.join([f'subject:{kw}' for kw in MEETING_KEYWORDS[:15]])
+    query = ' OR '.join([f'subject:{kw}' for kw in MEETING_KEYWORDS])
     query += ' is:unread'
 
     results = service.users().messages().list(
