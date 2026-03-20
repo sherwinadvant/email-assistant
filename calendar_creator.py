@@ -121,6 +121,8 @@ def create_event(result: dict, use_slot: dict = None, dry_run: bool = False) -> 
 
     except Exception as e:
         print(f"  ✗ Failed to create calendar event: {e}")
+        print(f"    → Ensure token.pickle has the 'calendar.events' scope.")
+        print(f"    → If scopes changed, delete token.pickle and re-authenticate.")
         return None
 
 

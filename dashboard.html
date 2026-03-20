@@ -18,32 +18,23 @@
     --font-ui:  'Syne', sans-serif;
     --font-mono:'JetBrains Mono', monospace;
   }
-
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-ui);
-    min-height: 100vh;
-    overflow-x: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-ui); min-height: 100vh; overflow-x: hidden;
   }
-
-  /* ── NOISE OVERLAY ─────────────────────────────────────── */
   body::before {
-    content: '';
-    position: fixed; inset: 0;
+    content: ''; position: fixed; inset: 0;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
     pointer-events: none; z-index: 0;
   }
 
-  /* ── HEADER ────────────────────────────────────────────── */
+  /* ── HEADER ── */
   header {
     position: sticky; top: 0; z-index: 100;
     display: flex; align-items: center; justify-content: space-between;
     padding: 1rem 2rem;
-    background: rgba(11,13,18,.9);
-    backdrop-filter: blur(16px);
+    background: rgba(11,13,18,.92); backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--border);
   }
   .logo { display: flex; align-items: center; gap: .75rem; }
@@ -54,232 +45,231 @@
   }
   .logo-text { font-size: 1.1rem; font-weight: 700; letter-spacing: -.02em; }
   .logo-text span { color: var(--accent); }
-
   .header-actions { display: flex; gap: .75rem; align-items: center; }
   .pill {
     font-family: var(--font-mono); font-size: .72rem;
     padding: .3rem .75rem; border-radius: 99px;
-    border: 1px solid var(--border); color: var(--muted);
-    background: var(--surface);
+    border: 1px solid var(--border); color: var(--muted); background: var(--surface);
+  }
+  .pill.live {
+    border-color: rgba(79,255,176,.3); color: var(--accent);
+    background: rgba(79,255,176,.08);
+    animation: pulse-pill 2s ease-in-out infinite;
+  }
+  @keyframes pulse-pill {
+    0%,100% { opacity: 1; } 50% { opacity: .6; }
   }
   .btn {
     font-family: var(--font-ui); font-size: .82rem; font-weight: 600;
     padding: .45rem 1.1rem; border-radius: 8px; cursor: pointer;
     border: none; transition: all .2s;
   }
-  .btn-primary {
-    background: var(--accent); color: #000;
-  }
+  .btn-primary { background: var(--accent); color: #000; }
   .btn-primary:hover { background: #7cffcb; }
   .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-ghost {
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+  .btn-ghost.active { color: var(--accent); border-color: rgba(79,255,176,.4); background: rgba(79,255,176,.08); }
 
-  /* ── LAYOUT ─────────────────────────────────────────────── */
+  /* ── LAYOUT — 3 columns when feed open ── */
   .layout {
     display: grid;
-    grid-template-columns: 320px 1fr;
-    min-height: calc(100vh - 60px);
+    grid-template-columns: 300px 1fr 0px;
+    min-height: calc(100vh - 61px);
     position: relative; z-index: 1;
+    transition: grid-template-columns .3s ease;
+  }
+  .layout.feed-open {
+    grid-template-columns: 300px 1fr 300px;
   }
 
-  /* ── SIDEBAR ─────────────────────────────────────────────── */
+  /* ── SIDEBAR ── */
   aside {
     border-right: 1px solid var(--border);
-    padding: 1.5rem 1rem;
-    overflow-y: auto;
+    padding: 1.25rem 1rem; overflow-y: auto;
   }
   .sidebar-label {
     font-family: var(--font-mono); font-size: .68rem; letter-spacing: .12em;
     color: var(--muted); text-transform: uppercase;
     padding: 0 .5rem; margin-bottom: .75rem;
   }
-
   .email-card {
-    padding: .85rem .9rem;
-    border-radius: 10px;
-    border: 1px solid transparent;
-    cursor: pointer;
-    margin-bottom: .5rem;
-    transition: all .15s;
-    position: relative;
+    padding: .85rem .9rem; border-radius: 10px;
+    border: 1px solid transparent; cursor: pointer;
+    margin-bottom: .5rem; transition: all .15s; position: relative;
   }
   .email-card:hover { background: var(--surface); border-color: var(--border); }
-  .email-card.active {
-    background: var(--surface);
-    border-color: var(--accent);
-  }
+  .email-card.active { background: var(--surface); border-color: var(--accent); }
   .email-card.active::before {
-    content: '';
-    position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-    width: 3px; height: 60%; border-radius: 0 3px 3px 0;
-    background: var(--accent);
+    content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 60%; border-radius: 0 3px 3px 0; background: var(--accent);
+  }
+  .email-card.new-card { animation: slide-in .4s ease; }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   .card-subject {
     font-size: .85rem; font-weight: 600;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    margin-bottom: .25rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: .25rem;
   }
   .card-from {
     font-size: .75rem; color: var(--muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .badge {
-    display: inline-block;
-    font-family: var(--font-mono); font-size: .65rem;
+    display: inline-block; font-family: var(--font-mono); font-size: .65rem;
     padding: .15rem .5rem; border-radius: 99px; margin-top: .4rem;
   }
   .badge-conflict { background: rgba(255,107,74,.15); color: var(--warn); border: 1px solid rgba(255,107,74,.3); }
   .badge-ok       { background: rgba(79,255,176,.12); color: var(--accent); border: 1px solid rgba(79,255,176,.25); }
   .badge-skip     { background: rgba(90,96,120,.15); color: var(--muted); border: 1px solid var(--border); }
+  .badge-pending  { background: rgba(124,106,255,.12); color: #a99fff; border: 1px solid rgba(124,106,255,.3); }
 
-  /* ── MAIN PANEL ──────────────────────────────────────────── */
+  /* ── MAIN PANEL ── */
   main { padding: 2rem; overflow-y: auto; }
-
   .empty-state {
     display: flex; flex-direction: column; align-items: center;
-    justify-content: center; height: 100%; gap: 1rem;
-    color: var(--muted);
+    justify-content: center; height: 100%; gap: 1rem; color: var(--muted);
   }
   .empty-icon { font-size: 3rem; }
   .empty-state h2 { font-size: 1.1rem; font-weight: 600; color: var(--text); }
   .empty-state p  { font-size: .85rem; text-align: center; max-width: 300px; }
 
-  /* ── DETAIL VIEW ─────────────────────────────────────────── */
+  /* ── DETAIL VIEW ── */
   .detail-header { margin-bottom: 2rem; }
-  .detail-subject {
-    font-size: 1.5rem; font-weight: 800;
-    letter-spacing: -.03em; margin-bottom: .5rem;
-  }
-  .detail-meta {
-    font-size: .8rem; color: var(--muted);
-    font-family: var(--font-mono);
-  }
-
+  .detail-subject { font-size: 1.5rem; font-weight: 800; letter-spacing: -.03em; margin-bottom: .5rem; }
+  .detail-meta { font-size: .8rem; color: var(--muted); font-family: var(--font-mono); }
   .section { margin-bottom: 2rem; }
   .section-title {
     font-family: var(--font-mono); font-size: .7rem; letter-spacing: .12em;
-    text-transform: uppercase; color: var(--muted);
-    margin-bottom: .85rem;
+    text-transform: uppercase; color: var(--muted); margin-bottom: .85rem;
     display: flex; align-items: center; gap: .5rem;
   }
-  .section-title::after {
-    content: ''; flex: 1; height: 1px; background: var(--border);
-  }
-
-  /* ── CARDS GRID ──────────────────────────────────────────── */
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
   .info-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
     gap: .75rem; margin-bottom: 1.5rem;
   }
   .info-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 1rem 1.1rem;
   }
-  .info-card-label {
-    font-family: var(--font-mono); font-size: .68rem; color: var(--muted);
-    margin-bottom: .35rem; letter-spacing: .06em;
-  }
-  .info-card-value {
-    font-size: .9rem; font-weight: 600; word-break: break-all;
-  }
-  .info-card-value.accent  { color: var(--accent); }
-  .info-card-value.warn    { color: var(--warn); }
-
-  /* ── ATTENDEE CHIPS ───────────────────────────────────────── */
+  .info-card-label { font-family: var(--font-mono); font-size: .68rem; color: var(--muted); margin-bottom: .35rem; }
+  .info-card-value { font-size: .9rem; font-weight: 600; word-break: break-all; }
+  .info-card-value.accent { color: var(--accent); }
+  .info-card-value.warn   { color: var(--warn); }
   .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
   .chip {
     font-family: var(--font-mono); font-size: .75rem;
     padding: .3rem .7rem; border-radius: 99px;
-    background: rgba(124,106,255,.12); border: 1px solid rgba(124,106,255,.25);
-    color: #a99fff;
+    background: rgba(124,106,255,.12); border: 1px solid rgba(124,106,255,.25); color: #a99fff;
   }
-
-  /* ── SLOT LIST ────────────────────────────────────────────── */
   .slot-list { display: flex; flex-direction: column; gap: .5rem; }
   .slot-item {
     display: flex; align-items: center; gap: .75rem;
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: .7rem 1rem;
-    font-size: .85rem;
-    transition: border-color .15s;
+    border-radius: 10px; padding: .7rem 1rem; font-size: .85rem; transition: border-color .15s;
   }
   .slot-item:hover { border-color: var(--accent); }
-  .slot-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--accent); flex-shrink: 0;
-  }
-
-  /* ── CONFLICT LIST ────────────────────────────────────────── */
+  .slot-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
   .conflict-item {
     display: flex; align-items: center; gap: .75rem;
     background: rgba(255,107,74,.06); border: 1px solid rgba(255,107,74,.2);
-    border-radius: 10px; padding: .7rem 1rem;
-    font-size: .85rem; margin-bottom: .5rem;
+    border-radius: 10px; padding: .7rem 1rem; font-size: .85rem; margin-bottom: .5rem;
   }
-  .conflict-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--warn); flex-shrink: 0;
-  }
-
-  /* ── REPLY BLOCK ──────────────────────────────────────────── */
+  .conflict-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex-shrink: 0; }
   .reply-box {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; padding: 1.25rem 1.4rem;
-    font-size: .85rem; line-height: 1.7;
-    white-space: pre-wrap;
-    font-family: var(--font-mono);
-    color: #cdd0e0;
-    position: relative;
+    font-size: .85rem; line-height: 1.7; white-space: pre-wrap;
+    font-family: var(--font-mono); color: #cdd0e0; position: relative;
   }
   .copy-btn {
     position: absolute; top: .75rem; right: .75rem;
     font-family: var(--font-mono); font-size: .68rem;
     padding: .25rem .6rem; border-radius: 6px;
-    background: var(--border); color: var(--muted);
-    border: none; cursor: pointer; transition: all .15s;
+    background: var(--border); color: var(--muted); border: none; cursor: pointer; transition: all .15s;
   }
   .copy-btn:hover { background: var(--accent); color: #000; }
 
-  /* ── SPINNER ──────────────────────────────────────────────── */
+  /* ── ACTIVITY FEED PANEL ── */
+  #feed-panel {
+    border-left: 1px solid var(--border);
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .feed-header {
+    padding: 1.1rem 1rem .75rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .feed-title {
+    font-family: var(--font-mono); font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .2; } }
+  #feed-list {
+    flex: 1; overflow-y: auto; padding: .75rem .9rem;
+    display: flex; flex-direction: column; gap: .4rem;
+  }
+  .feed-item {
+    display: grid; grid-template-columns: 52px 1fr;
+    gap: .5rem; padding: .5rem .6rem;
+    border-radius: 8px; background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: .76rem; animation: feed-in .3s ease;
+  }
+  @keyframes feed-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .feed-time { font-family: var(--font-mono); color: var(--muted); font-size: .68rem; padding-top: .05rem; }
+  .feed-msg  { color: var(--text); line-height: 1.4; }
+  .feed-item.success { border-color: rgba(79,255,176,.2); }
+  .feed-item.success .feed-msg { color: var(--accent); }
+  .feed-item.warn    { border-color: rgba(255,107,74,.2); }
+  .feed-item.warn    .feed-msg { color: var(--warn); }
+  .feed-item.error   { border-color: rgba(255,107,74,.4); background: rgba(255,107,74,.06); }
+  .feed-item.error   .feed-msg { color: var(--warn); }
+
+  /* ── SPINNER ── */
   .spinner {
     display: inline-block; width: 16px; height: 16px;
-    border: 2px solid rgba(79,255,176,.3);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin .7s linear infinite;
+    border: 2px solid rgba(79,255,176,.3); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ── LOADING OVERLAY ──────────────────────────────────────── */
   #loading {
     display: none; position: fixed; inset: 0; z-index: 200;
     background: rgba(11,13,18,.85); backdrop-filter: blur(8px);
-    flex-direction: column; align-items: center; justify-content: center;
-    gap: 1rem;
+    flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
   }
   #loading.show { display: flex; }
   #loading p { color: var(--muted); font-family: var(--font-mono); font-size: .85rem; }
-
-  /* ── STATUS BAR ───────────────────────────────────────────── */
   #status-bar {
     position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
     font-family: var(--font-mono); font-size: .78rem;
     background: var(--surface); border: 1px solid var(--border);
-    padding: .4rem 1rem; border-radius: 99px;
-    color: var(--muted); z-index: 150;
-    opacity: 0; transition: opacity .3s;
-    pointer-events: none;
+    padding: .4rem 1rem; border-radius: 99px; color: var(--muted); z-index: 150;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
   }
   #status-bar.show { opacity: 1; }
 </style>
 </head>
 <body>
 
-<!-- LOADING -->
 <div id="loading">
   <div class="spinner" style="width:36px;height:36px;border-width:3px;"></div>
-  <p id="loading-msg">Fetching emails from Gmail…</p>
+  <p id="loading-msg">Syncing Gmail…</p>
 </div>
-
 <div id="status-bar"></div>
 
 <!-- HEADER -->
@@ -290,125 +280,230 @@
   </div>
   <div class="header-actions">
     <span class="pill" id="last-refresh">Not synced</span>
-    <button class="btn btn-primary" id="refresh-btn" onclick="fetchEmails()">
-      Sync Gmail
-    </button>
+    <button class="btn btn-ghost" id="feed-btn" onclick="toggleFeed()">Activity Feed</button>
+    <button class="btn btn-ghost" id="refresh-btn" onclick="runRefresh()">↻ Refresh</button>
+    <button class="btn btn-ghost" id="preview-btn" onclick="runPreview()">🔍 Preview</button>
+    <button class="btn btn-primary" id="send-btn" onclick="runSend()" disabled title="Run Preview first">Send &amp; Schedule</button>
   </div>
 </header>
 
 <!-- LAYOUT -->
-<div class="layout">
+<div class="layout feed-open" id="layout">
   <!-- SIDEBAR -->
   <aside>
     <div class="sidebar-label">Inbox · Meeting Requests</div>
     <div id="email-list">
       <div style="color:var(--muted);font-size:.82rem;padding:.5rem;">
-        Click "Sync Gmail" to load emails.
+        Waiting for first sync…
       </div>
     </div>
   </aside>
 
-  <!-- MAIN -->
+  <!-- MAIN PANEL -->
   <main id="main-panel">
     <div class="empty-state">
       <div class="empty-icon">✉️</div>
       <h2>No email selected</h2>
-      <p>Sync your Gmail inbox and select an email to see the AI analysis.</p>
+      <p>Select an email from the sidebar to see the AI analysis.</p>
     </div>
   </main>
+
+  <!-- ACTIVITY FEED -->
+  <div id="feed-panel">
+    <div class="feed-header">
+      <div class="feed-title">
+        <div class="live-dot"></div>
+        Live Activity
+      </div>
+      <div class="spinner" id="feed-spinner" style="display:none; width:14px; height:14px;"></div>
+    </div>
+    <div id="feed-list">
+      <div style="color:var(--muted);font-size:.78rem;padding:.5rem;font-family:var(--font-mono)">
+        Waiting for activity…
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-let results = [];
+// ── State ─────────────────────────────────────────────────────────────────
+let results      = [];
+let feedOpen     = true;
+let previewReady = false;
 
-async function fetchEmails() {
+// ── Boot — fetch emails immediately on page load ───────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  runRefresh();
+});
+
+// ── Refresh: fetch emails + auto-analyse + draft replies ──────────────────
+// Analysis and drafting happen automatically here. Preview just shows results.
+async function runRefresh() {
   const btn = document.getElementById('refresh-btn');
-  btn.disabled = true;
-  btn.textContent = 'Syncing…';
-  showLoading('Fetching meeting emails from Gmail…');
-
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Refreshing…'; }
+  // Disable send until we have fresh drafted results
+  const sendBtn = document.getElementById('send-btn');
+  sendBtn.disabled = true;
+  previewReady = false;
+  showLoading('Fetching emails and auto-drafting replies…');
   try {
-    const res = await fetch('/api/process');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    results = await res.json();
-
-    renderSidebar(results);
-    document.getElementById('last-refresh').textContent =
-      'Last sync: ' + new Date().toLocaleTimeString();
-    showStatus(`✓ Processed ${results.length} email(s)`);
+    const res  = await fetch('/api/preview');   // preview = fetch + analyse + draft
+    const data = await res.json();
+    if (data.status === 'error') {
+      showStatus('✗ ' + data.message);
+      return;
+    }
+    if (data.status === 'no_emails') {
+      updateSidebar([]);
+      showStatus('📭 No unread meeting emails found.');
+    } else {
+      updateSidebar(data.results || []);
+      document.getElementById('last-refresh').textContent =
+        'Analysed at ' + new Date().toLocaleTimeString();
+      const count = (data.results||[]).filter(r => r.is_meeting_request).length;
+      showStatus('✓ ' + count + ' meeting(s) analysed and replies drafted. Click Preview to review.');
+      previewReady     = true;
+      sendBtn.disabled = false;
+      sendBtn.title    = '';
+    }
+    await pollStatus();
   } catch(e) {
-    showStatus('✗ Error: ' + e.message);
+    showStatus('✗ Refresh error: ' + e.message);
   } finally {
     hideLoading();
-    btn.disabled = false;
-    btn.textContent = 'Sync Gmail';
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
   }
 }
 
-function renderSidebar(data) {
+// ── Preview: show already-drafted results, no processing ──────────────────
+async function runPreview() {
+  const btn = document.getElementById('preview-btn');
+  btn.disabled    = true;
+  btn.textContent = 'Loading…';
+  try {
+    const res  = await fetch('/api/status');
+    const data = await res.json();
+    const results_data = data.results || [];
+    if (!results_data.length) {
+      showStatus('⚠ No drafted replies yet — click Refresh first.');
+      return;
+    }
+    updateSidebar(results_data);
+    // Open the first meeting email automatically
+    const firstMeeting = results_data.findIndex(r => r.is_meeting_request);
+    if (firstMeeting !== -1) showDetail(firstMeeting);
+    showStatus('Showing ' + results_data.filter(r=>r.is_meeting_request).length + ' drafted reply(s). Hit Send & Schedule when ready.');
+  } catch(e) {
+    showStatus('✗ Preview error: ' + e.message);
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = '🔍 Preview';
+  }
+}
+
+// ── Send & Schedule ────────────────────────────────────────────────────────
+async function runSend() {
+  if (!previewReady) { showStatus('⚠ Run Preview first.'); return; }
+  const btn = document.getElementById('send-btn');
+  btn.disabled    = true;
+  btn.textContent = 'Sending…';
+  showLoading('Sending replies and creating calendar events…');
+  try {
+    const res  = await fetch('/api/process');
+    const data = await res.json();
+    if (data.status === 'error') {
+      showStatus('✗ ' + data.message);
+      btn.disabled    = false;
+      btn.textContent = 'Send & Schedule';
+      return;
+    }
+    showStatus('✅ Done — ' + (data.sent||0) + ' reply(s) sent and event(s) created.');
+    document.getElementById('last-refresh').textContent =
+      'Sent at ' + new Date().toLocaleTimeString();
+    previewReady    = false;
+    btn.textContent = 'Send & Schedule';
+    btn.disabled    = true;
+    btn.title       = 'Run Preview first';
+    await pollStatus();
+  } catch(e) {
+    showStatus('✗ Send failed: ' + e.message);
+    btn.disabled    = false;
+    btn.textContent = 'Send & Schedule';
+  } finally {
+    hideLoading();
+  }
+}
+
+// ── Poll /api/status (read-only) ───────────────────────────────────────────
+async function pollStatus() {
+  try {
+    const res  = await fetch('/api/status');
+    const data = await res.json();
+    if (data.results && data.results.length) updateSidebar(data.results);
+    if (data.activity && data.activity.length) renderFeed(data.activity);
+    if (data.last_refresh)
+      document.getElementById('last-refresh').textContent = 'Last sync: ' + data.last_refresh;
+  } catch(e) { console.warn('Status poll failed:', e); }
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+function updateSidebar(data) {
+  results = data;
   const list = document.getElementById('email-list');
   if (!data.length) {
     list.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:.5rem;">No meeting emails found.</div>';
     return;
   }
   list.innerHTML = data.map((r, i) => {
-    const isMeeting = r.is_meeting_request;
-    const hasConflict = r.has_conflict;
-    const badgeHtml = isMeeting
-      ? (hasConflict
-          ? '<span class="badge badge-conflict">⚠ Conflict</span>'
-          : '<span class="badge badge-ok">✓ Clear</span>')
+    const badge = r.is_meeting_request
+      ? (r.resolved
+          ? '<span class="badge badge-ok">✓ Resolved</span>'
+          : r.has_conflict
+            ? '<span class="badge badge-conflict">⚠ Conflict</span>'
+            : '<span class="badge badge-ok">✓ Clear</span>')
       : '<span class="badge badge-skip">Skipped</span>';
-
     return `
       <div class="email-card" onclick="showDetail(${i})" id="card-${i}">
         <div class="card-subject">${esc(r.subject || '(no subject)')}</div>
         <div class="card-from">${esc((r.from || '').replace(/<.*>/, '').trim())}</div>
-        ${badgeHtml}
+        ${badge}
       </div>`;
   }).join('');
 }
 
+// ── Detail panel ───────────────────────────────────────────────────────────
 function showDetail(idx) {
-  // Active state
   document.querySelectorAll('.email-card').forEach(c => c.classList.remove('active'));
   document.getElementById('card-' + idx)?.classList.add('active');
-
-  const r = results[idx];
+  const r    = results[idx];
   const main = document.getElementById('main-panel');
 
-  if (!r.is_meeting_request) {
+  if (!r.is_meeting_request || !r.meeting_title) {
     main.innerHTML = `
       <div class="detail-header">
         <div class="detail-subject">${esc(r.subject)}</div>
         <div class="detail-meta">${esc(r.from || '')}</div>
       </div>
       <div style="color:var(--muted);font-size:.88rem;padding:1rem 0;">
-        🔍 This email was not identified as a meeting request and was skipped.
+        ${r.is_meeting_request ? '⏳ Run Preview to analyse this email.' : '🔍 Not a meeting request — skipped.'}
       </div>`;
     return;
   }
 
-  const attendees = (r.requested_attendees || [])
-    .map(a => `<span class="chip">${esc(a)}</span>`).join('');
-
-  const conflictHtml = (r.conflicts || []).length
-    ? (r.conflicts || []).slice(0,5).map(c => `
+  const attendees    = (r.requested_attendees||[]).map(a => `<span class="chip">${esc(a)}</span>`).join('');
+  const conflictHtml = (r.conflicts||[]).length
+    ? (r.conflicts||[]).slice(0,5).map(c => `
         <div class="conflict-item">
           <div class="conflict-dot"></div>
           <div>
-            <div style="font-weight:600">${esc(c.summary || 'Unnamed event')}</div>
-            <div style="font-size:.75rem;color:var(--muted);font-family:var(--font-mono)">
-              ${esc((c.start||{}).dateTime || '')}
-            </div>
+            <div style="font-weight:600">${esc(c.summary||'Unnamed event')}</div>
+            <div style="font-size:.75rem;color:var(--muted);font-family:var(--font-mono)">${esc((c.start||{}).dateTime||'')}</div>
           </div>
         </div>`).join('')
     : '<div style="color:var(--accent);font-size:.85rem;">✓ No conflicts found</div>';
 
-  const slotsHtml = (r.free_slots || []).length
-    ? `<div class="slot-list">${(r.free_slots||[]).map(s =>
-        `<div class="slot-item"><div class="slot-dot"></div>${esc(s.label)}</div>`
-      ).join('')}</div>`
+  const slotsHtml = (r.free_slots||[]).length
+    ? `<div class="slot-list">${(r.free_slots||[]).map(s=>`<div class="slot-item"><div class="slot-dot"></div>${esc(s.label)}</div>`).join('')}</div>`
     : '<div style="color:var(--muted);font-size:.85rem;">No alternative slots computed.</div>';
 
   const replyHtml = r.suggested_reply
@@ -418,9 +513,8 @@ function showDetail(idx) {
   main.innerHTML = `
     <div class="detail-header">
       <div class="detail-subject">${esc(r.subject)}</div>
-      <div class="detail-meta">${esc(r.from || '')} · ${esc(r.meeting_title || '')}</div>
+      <div class="detail-meta">${esc(r.from||'')} · ${esc(r.meeting_title||'')}</div>
     </div>
-
     <div class="info-grid">
       <div class="info-card">
         <div class="info-card-label">Proposed Start</div>
@@ -431,72 +525,76 @@ function showDetail(idx) {
         <div class="info-card-value accent">${esc(fmtDate(r.proposed_end))}</div>
       </div>
       <div class="info-card">
-        <div class="info-card-label">Conflict Status</div>
+        <div class="info-card-label">Status</div>
         <div class="info-card-value ${r.has_conflict ? 'warn' : 'accent'}">
-          ${r.has_conflict ? '⚠ Conflict detected' : '✓ All clear'}
+          ${r.has_conflict ? '⚠ Conflict' : '✓ All clear'}
         </div>
       </div>
     </div>
-
     <div class="section">
       <div class="section-title">Whose time is requested</div>
-      <div class="chips">${attendees || '<span style="color:var(--muted)">Unknown</span>'}</div>
+      <div class="chips">${attendees||'<span style="color:var(--muted)">Unknown</span>'}</div>
     </div>
-
     <div class="section">
       <div class="section-title">Calendar conflicts</div>
       ${conflictHtml}
     </div>
-
     <div class="section">
       <div class="section-title">Suggested free slots</div>
       ${slotsHtml}
     </div>
-
     <div class="section">
       <div class="section-title">AI-drafted reply</div>
       ${replyHtml}
-    </div>
-  `;
+    </div>`;
 }
 
+// ── Activity feed ──────────────────────────────────────────────────────────
+function renderFeed(activity) {
+  const list = document.getElementById('feed-list');
+  if (!activity.length) return;
+  list.innerHTML = activity.map(a => `
+    <div class="feed-item ${esc(a.kind||'info')}">
+      <div class="feed-time">${esc(a.time)}</div>
+      <div class="feed-msg">${esc(a.msg)}</div>
+    </div>`).join('');
+}
+
+function toggleFeed() {
+  feedOpen = !feedOpen;
+  document.getElementById('layout').classList.toggle('feed-open', feedOpen);
+  document.getElementById('feed-btn').classList.toggle('active', feedOpen);
+  document.getElementById('feed-btn').textContent = feedOpen ? 'Hide Feed' : 'Activity Feed';
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 function copyReply(idx) {
-  const r = results[idx];
-  navigator.clipboard.writeText(r.suggested_reply || '');
-  showStatus('Reply copied to clipboard ✓');
+  navigator.clipboard.writeText(results[idx]?.suggested_reply || '');
+  showStatus('Reply copied ✓');
 }
-
 function fmtDate(iso) {
   if (!iso) return 'Unknown';
   try {
     return new Date(iso).toLocaleString('en-IN', {
-      weekday: 'short', day: 'numeric', month: 'short',
-      hour: '2-digit', minute: '2-digit'
+      weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'
     });
   } catch { return iso; }
 }
-
 function esc(str) {
-  return String(str ?? '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
 function showLoading(msg) {
   document.getElementById('loading-msg').textContent = msg;
   document.getElementById('loading').classList.add('show');
 }
-function hideLoading() {
-  document.getElementById('loading').classList.remove('show');
-}
-
+function hideLoading() { document.getElementById('loading').classList.remove('show'); }
 let statusTimer;
 function showStatus(msg) {
   const bar = document.getElementById('status-bar');
   bar.textContent = msg;
   bar.classList.add('show');
   clearTimeout(statusTimer);
-  statusTimer = setTimeout(() => bar.classList.remove('show'), 3000);
+  statusTimer = setTimeout(() => bar.classList.remove('show'), 4000);
 }
 </script>
 </body>

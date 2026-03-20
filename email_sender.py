@@ -69,14 +69,15 @@ def send_reply(original_email: dict, reply_body: str, dry_run: bool = False) -> 
     try:
         svc = get_gmail_service()
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
-        svc.users().messages().send(
+        sent_msg = svc.users().messages().send(
             userId="me",
             body={"raw": raw}
         ).execute()
-        print(f"  ✓ Reply sent to {to_address}")
+        print(f"  ✓ Reply sent to {to_address}  [Gmail message id: {sent_msg.get('id')}]")
         return True
     except Exception as e:
         print(f"  ✗ Failed to send reply to {to_address}: {e}")
+        print(f"    → Check that token.pickle has the 'gmail.send' scope.")
         return False
 
 

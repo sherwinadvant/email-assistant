@@ -9,7 +9,7 @@ Built with Python, NVIDIA NIM (LLaMA 3.1), and the Google APIs.
 ##  Features
 
 - **Meeting detection** — reads unread emails and identifies scheduling requests using an LLM
-- **Attendee resolution** — figures out *whose* calendar time is being requested from the email body, not just the headers
+- **Attendee resolution** — figures out whose calendar time is being requested from the email body, not just the headers
 - **Conflict checking** — queries Google Calendar for all attendees simultaneously using the Freebusy API
 - **Free slot suggestion** — finds up to 5 open windows across all attendees' working hours
 - **AI reply drafting** — writes a professional reply confirming the meeting or proposing alternatives

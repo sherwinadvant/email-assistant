@@ -91,7 +91,6 @@ def _split_confirmation_replies(emails: list[dict]) -> tuple[list[dict], list[st
             print(f"✅ Slot confirmed by {sender}: {slot['label']}")
             print(f"   Meeting: {pending.get('meeting_title')}")
 
-            # Build the result dict create_event() expects
             event_result = {
                 "meeting_title":       pending.get("meeting_title"),
                 "subject":             pending.get("subject"),
@@ -104,6 +103,16 @@ def _split_confirmation_replies(emails: list[dict]) -> tuple[list[dict], list[st
             create_event(event_result, use_slot=None, dry_run=False)
             pending_store.remove_pending(sender, pending.get("subject", ""))
             confirmed_ids.append(email["id"])
+
+        elif email.get("is_reply"):
+            # This Re: email was checked by reply_analyzer and is NOT a slot
+            # confirmation. It could be a casual reply ("Thanks!"), an agenda
+            # question, or anything else. We do NOT pass it to meeting_analyzer
+            # — it is never a new meeting request. Just mark it as read and
+            # move on so it doesn't reappear on every Refresh.
+            print(f"  ↳ Non-confirmation reply — marking as read and skipping: {email.get('subject')}")
+            confirmed_ids.append(email["id"])   # reuse confirmed_ids — both get marked read
+
         else:
             remaining.append(email)
 
@@ -216,25 +225,233 @@ def run_watch():
 
 def run_dashboard():
     try:
-        from flask import Flask, jsonify, render_template_string
+        from flask import Flask, jsonify, send_file, Response
     except ImportError:
         print("Flask not installed. Run: pip install flask")
         sys.exit(1)
 
     app = Flask(__name__)
-    DASHBOARD_HTML = (open("dashboard.html").read()
-                      if os.path.exists("dashboard.html")
-                      else "<h1>dashboard.html not found</h1>")
 
     @app.route("/")
     def index():
-        return render_template_string(DASHBOARD_HTML)
+        # Serve the file directly each request — never stale, no Jinja conflicts
+        if os.path.exists("dashboard.html"):
+            return send_file(os.path.abspath("dashboard.html"))
+        return Response("<h1>dashboard.html not found</h1>", mimetype="text/html")
+
+    # In-memory state shared across requests within this server session
+    dashboard_state = {
+        "last_results": [],
+        "last_refresh": None,
+        "activity":     [],
+    }
+
+    def _log(msg: str, kind: str = "info"):
+        dashboard_state["activity"].insert(0, {
+            "time": datetime.now().strftime("%H:%M:%S"),
+            "msg":  msg,
+            "kind": kind,
+        })
+        dashboard_state["activity"] = dashboard_state["activity"][:50]
+
+    @app.route("/api/status")
+    def api_status():
+        """Lightweight poll — returns cached results and activity feed, no side effects."""
+        return jsonify({
+            "results":      dashboard_state["last_results"],
+            "activity":     dashboard_state["activity"],
+            "last_refresh": dashboard_state["last_refresh"],
+        })
+
+    @app.route("/api/refresh")
+    def api_refresh():
+        """
+        Fast Gmail fetch — no LLM, no send, no calendar.
+        Returns raw email list for the sidebar immediately.
+        Fetches unread meeting emails from the last 7 days.
+        """
+        try:
+            from gmail_reader import get_gmail_service, MEETING_KEYWORDS, decode_body
+            import re as _re
+            svc, _ = get_gmail_service()
+
+            subject_terms = ' OR '.join([f'subject:{kw}' for kw in MEETING_KEYWORDS])
+            body_terms    = ' OR '.join(MEETING_KEYWORDS)
+            query = f'({subject_terms} OR {body_terms}) is:unread newer_than:7d'
+
+            res      = svc.users().messages().list(userId='me', q=query, maxResults=20).execute()
+            messages = res.get('messages', [])
+
+            emails = []
+            for msg in messages:
+                md      = svc.users().messages().get(userId='me', id=msg['id'], format='full').execute()
+                headers = {h['name']: h['value'] for h in md['payload']['headers']}
+                emails.append({
+                    'id':      msg['id'],
+                    'subject': headers.get('Subject', 'No Subject'),
+                    'from':    headers.get('From', 'Unknown'),
+                    'date':    headers.get('Date', ''),
+                    'snippet': md.get('snippet', '')[:120],
+                    'unread':  True,
+                    # Placeholder flags — Preview will fill these in properly
+                    'is_meeting_request': True,
+                    'has_conflict': False,
+                })
+
+            dashboard_state["last_refresh"] = datetime.now().strftime("%H:%M:%S")
+            _log(f"Gmail refreshed — {len(emails)} unread meeting email(s) found.", "info")
+            return jsonify({"status": "ok" if emails else "no_emails", "results": emails})
+
+        except Exception as e:
+            _log(f"Refresh error: {e}", "error")
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    @app.route("/api/sync")
+    def api_sync():
+        """
+        Fetch emails from Gmail (unread AND recently read) and return raw
+        metadata for the sidebar — no LLM analysis, no send, no calendar.
+        This is just a fast Gmail refresh so the user can see what's there.
+        """
+        from gmail_reader import fetch_meeting_emails as _fetch
+
+        # Also pull in emails that were already read (last 2 days) so the
+        # dashboard isn't blank after a --send run marks everything as read.
+        try:
+            svc, _ = __import__('gmail_reader').get_gmail_service()
+            from gmail_reader import MEETING_KEYWORDS, decode_body, extract_emails_from_text
+            import base64 as _b64
+
+            subject_terms = ' OR '.join([f'subject:{kw}' for kw in MEETING_KEYWORDS])
+            body_terms    = ' OR '.join(MEETING_KEYWORDS)
+            # No is:unread filter here — show everything recent
+            query = f'({subject_terms} OR {body_terms}) newer_than:3d'
+
+            res = svc.users().messages().list(userId='me', q=query, maxResults=20).execute()
+            messages = res.get('messages', [])
+
+            emails = []
+            for msg in messages:
+                md = svc.users().messages().get(userId='me', id=msg['id'], format='full').execute()
+                headers = {h['name']: h['value'] for h in md['payload']['headers']}
+                body    = decode_body(md['payload'])
+                labels  = md.get('labelIds', [])
+                emails.append({
+                    'id':       msg['id'],
+                    'subject':  headers.get('Subject', 'No Subject'),
+                    'from':     headers.get('From', 'Unknown'),
+                    'date':     headers.get('Date', ''),
+                    'snippet':  md.get('snippet', '')[:120],
+                    'unread':   'UNREAD' in labels,
+                    'is_meeting_request': True,   # lightweight — just show it; Preview will analyse
+                })
+        except Exception as e:
+            _log(f'Sync error: {e}', 'error')
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
+        if not emails:
+            _log('Sync: no meeting emails found in the last 3 days.', 'info')
+            dashboard_state["last_refresh"] = datetime.now().strftime("%H:%M:%S")
+            return jsonify({'status': 'no_emails', 'results': []})
+
+        _log(f'Sync: found {len(emails)} email(s) — click Preview to analyse.', 'info')
+        dashboard_state["last_refresh"] = datetime.now().strftime("%H:%M:%S")
+        # Store raw emails so Preview can act on them without re-fetching
+        dashboard_state["synced_emails"] = emails
+        return jsonify({'status': 'ok', 'results': emails})
+
+    @app.route("/api/preview")
+    def api_preview():
+        """
+        Fetch + analyse emails. Does NOT send or schedule anything.
+        Looks at unread emails first; if none found, also checks emails
+        read in the last 3 days so the dashboard works after a --send run.
+        """
+        emails = fetch_meeting_emails(max_results=15)
+
+        if not emails:
+            # Fallback: also check recently-read meeting emails (last 3 days)
+            try:
+                svc, _ = __import__('gmail_reader').get_gmail_service()
+                from gmail_reader import MEETING_KEYWORDS, decode_body, extract_emails_from_text
+                subject_terms = ' OR '.join([f'subject:{kw}' for kw in MEETING_KEYWORDS])
+                body_terms    = ' OR '.join(MEETING_KEYWORDS)
+                query = f'({subject_terms} OR {body_terms}) newer_than:3d'
+                res = svc.users().messages().list(userId='me', q=query, maxResults=15).execute()
+                raw_msgs = res.get('messages', [])
+                for msg in raw_msgs:
+                    md      = svc.users().messages().get(userId='me', id=msg['id'], format='full').execute()
+                    headers = {h['name']: h['value'] for h in md['payload']['headers']}
+                    body    = decode_body(md['payload'])
+                    all_text = body + headers.get('From','') + headers.get('To','') + headers.get('Cc','')
+                    import re as _re
+                    mentioned = list(set(_re.findall(r'[\w\.-]+@[\w\.-]+\.\w+', all_text)))
+                    emails.append({
+                        'id':               msg['id'],
+                        'from':             headers.get('From','Unknown'),
+                        'to':               headers.get('To',''),
+                        'cc':               headers.get('Cc',''),
+                        'subject':          headers.get('Subject','No Subject'),
+                        'date':             headers.get('Date',''),
+                        'snippet':          md.get('snippet',''),
+                        'body':             body[:3000],
+                        'mentioned_emails': mentioned,
+                    })
+            except Exception as e:
+                _log(f"Preview fetch error: {e}", "error")
+
+        if not emails:
+            _log("No meeting emails found (unread or recent).", "info")
+            dashboard_state["last_results"] = []
+            dashboard_state["last_refresh"] = datetime.now().strftime("%H:%M:%S")
+            return jsonify({"status": "no_emails", "results": []})
+
+        _log(f"Fetched {len(emails)} email(s) — analysing…", "info")
+
+        remaining, confirmed_ids = _split_confirmation_replies(emails)
+        if confirmed_ids:
+            mark_as_read(confirmed_ids)
+            _log(f"Auto-confirmed {len(confirmed_ids)} slot reply(s).", "success")
+
+        results = process_all_emails(remaining)
+        meeting_count  = sum(1 for r in results if r.get("is_meeting_request"))
+        conflict_count = sum(1 for r in results if r.get("has_conflict"))
+        _log(
+            f"Preview ready — {meeting_count} meeting(s), {conflict_count} conflict(s). "
+            "Review below, then click Send & Schedule.",
+            "success" if not conflict_count else "warn",
+        )
+
+        dashboard_state["last_results"] = results
+        dashboard_state["last_refresh"] = datetime.now().strftime("%H:%M:%S")
+        return jsonify({"status": "ok", "results": results})
 
     @app.route("/api/process")
     def api_process():
-        emails = fetch_meeting_emails(max_results=15)
-        results = process_all_emails(emails)
-        return jsonify(results)
+        """Send replies + create events for the last previewed batch."""
+        results = dashboard_state.get("last_results", [])
+        if not results:
+            return jsonify({"status": "error", "message": "Run Preview first."}), 400
+
+        meeting_results = [r for r in results if r.get("is_meeting_request")]
+        if not meeting_results:
+            return jsonify({"status": "no_meetings", "message": "No meeting requests to act on."})
+
+        _log(f"Sending {len(meeting_results)} reply(s)…", "info")
+        send_all_replies(results, dry_run=False)
+        _log("Replies sent.", "success")
+
+        _log("Creating calendar events…", "info")
+        create_all_events(results, dry_run=False)
+        _log("Calendar events created.", "success")
+
+        processed_ids = [r.get("email_id") for r in results if r.get("email_id")]
+        mark_as_read(processed_ids)
+
+        # Clear cache so the same batch can't be accidentally sent twice
+        dashboard_state["last_results"] = []
+
+        return jsonify({"status": "ok", "sent": len(meeting_results)})
 
     print("Starting dashboard at http://localhost:5050")
     app.run(port=5050, debug=False)

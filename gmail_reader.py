@@ -111,16 +111,34 @@ def fetch_meeting_emails(max_results=10):
         all_text = body + headers.get('From', '') + headers.get('To', '') + headers.get('Cc', '')
         mentioned_emails = list(set(extract_emails_from_text(all_text)))
 
+        from_header = headers.get('From', 'Unknown')
+        subject     = headers.get('Subject', 'No Subject')
+
+        # Skip emails sent FROM our own assistant account — these are our
+        # own outgoing replies that Gmail placed back in the inbox.
+        my_email = os.environ.get('MY_EMAIL', '').lower()
+        sender_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', from_header)
+        sender_email = sender_match.group(0).lower() if sender_match else ''
+        if my_email and sender_email == my_email:
+            print(f"  [gmail_reader] Skipping own outgoing reply: {subject}")
+            continue
+
+        # Tag Re: emails so the pipeline routes them to reply_analyzer,
+        # not meeting_analyzer — a Re: from a sender is a slot confirmation,
+        # never a fresh meeting request.
+        is_reply = bool(re.match(r'^re:\s*', subject.strip(), re.IGNORECASE))
+
         parsed_emails.append({
             'id': msg['id'],
-            'from': headers.get('From', 'Unknown'),
+            'from': from_header,
             'to': headers.get('To', ''),
             'cc': headers.get('Cc', ''),
-            'subject': headers.get('Subject', 'No Subject'),
+            'subject': subject,
             'date': headers.get('Date', ''),
             'snippet': msg_data.get('snippet', ''),
-            'body': body[:3000],  # Limit to avoid token overflow
-            'mentioned_emails': mentioned_emails
+            'body': body[:3000],
+            'mentioned_emails': mentioned_emails,
+            'is_reply': is_reply,
         })
 
     return parsed_emails

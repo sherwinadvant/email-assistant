@@ -394,6 +394,21 @@ def process_email(email: dict) -> dict:
     print(f"\n{'='*60}")
     print(f"Processing: {email.get('subject','(no subject)')}")
 
+    # Guard: if this email is a reply (Re: subject) it can only be a slot
+    # confirmation from the sender — reply_analyzer handles those in main.py
+    # before this function is ever called. If it reaches here it means
+    # reply_analyzer didn't recognise it, so skip it rather than
+    # misidentifying it as a new meeting request.
+    if email.get('is_reply'):
+        print(f"  Skipping Re: email — not a slot confirmation and not a new request.")
+        return {
+            "email_id":           email.get("id"),
+            "subject":            email.get("subject"),
+            "from":               email.get("from"),
+            "is_meeting_request": False,
+            "message":            "Reply email — not a new meeting request.",
+        }
+
     # Step 1 & 2: Identify meeting intent + who is requested
     analysis = analyze_meeting_intent(email)
 
