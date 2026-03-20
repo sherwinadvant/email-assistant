@@ -1,7 +1,14 @@
-.env
-token.json
-token.pickle
+# Credentials & secrets
 credentials.json
+token.pickle
+.env
+
+# Pending state (optional — commit if you want to preserve state across machines)
+pending_meetings.json
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+.venv/
 venv/

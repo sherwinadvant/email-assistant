@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meeting Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:       #0b0d12;
+    --surface:  #12151c;
+    --border:   #1e2330;
+    --accent:   #4fffb0;
+    --accent2:  #7c6aff;
+    --warn:     #ff6b4a;
+    --text:     #e8eaf0;
+    --muted:    #5a6078;
+    --font-ui:  'Syne', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE OVERLAY ─────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── HEADER ────────────────────────────────────────────── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 2rem;
+    background: rgba(11,13,18,.9);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { display: flex; align-items: center; gap: .75rem; }
+  .logo-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: grid; place-items: center; font-size: 1.1rem;
+  }
+  .logo-text { font-size: 1.1rem; font-weight: 700; letter-spacing: -.02em; }
+  .logo-text span { color: var(--accent); }
+
+  .header-actions { display: flex; gap: .75rem; align-items: center; }
+  .pill {
+    font-family: var(--font-mono); font-size: .72rem;
+    padding: .3rem .75rem; border-radius: 99px;
+    border: 1px solid var(--border); color: var(--muted);
+    background: var(--surface);
+  }
+  .btn {
+    font-family: var(--font-ui); font-size: .82rem; font-weight: 600;
+    padding: .45rem 1.1rem; border-radius: 8px; cursor: pointer;
+    border: none; transition: all .2s;
+  }
+  .btn-primary {
+    background: var(--accent); color: #000;
+  }
+  .btn-primary:hover { background: #7cffcb; }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── LAYOUT ─────────────────────────────────────────────── */
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: calc(100vh - 60px);
+    position: relative; z-index: 1;
+  }
+
+  /* ── SIDEBAR ─────────────────────────────────────────────── */
+  aside {
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 1rem;
+    overflow-y: auto;
+  }
+  .sidebar-label {
+    font-family: var(--font-mono); font-size: .68rem; letter-spacing: .12em;
+    color: var(--muted); text-transform: uppercase;
+    padding: 0 .5rem; margin-bottom: .75rem;
+  }
+
+  .email-card {
+    padding: .85rem .9rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    margin-bottom: .5rem;
+    transition: all .15s;
+    position: relative;
+  }
+  .email-card:hover { background: var(--surface); border-color: var(--border); }
+  .email-card.active {
+    background: var(--surface);
+    border-color: var(--accent);
+  }
+  .email-card.active::before {
+    content: '';
+    position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 60%; border-radius: 0 3px 3px 0;
+    background: var(--accent);
+  }
+  .card-subject {
+    font-size: .85rem; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: .25rem;
+  }
+  .card-from {
+    font-size: .75rem; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .badge {
+    display: inline-block;
+    font-family: var(--font-mono); font-size: .65rem;
+    padding: .15rem .5rem; border-radius: 99px; margin-top: .4rem;
+  }
+  .badge-conflict { background: rgba(255,107,74,.15); color: var(--warn); border: 1px solid rgba(255,107,74,.3); }
+  .badge-ok       { background: rgba(79,255,176,.12); color: var(--accent); border: 1px solid rgba(79,255,176,.25); }
+  .badge-skip     { background: rgba(90,96,120,.15); color: var(--muted); border: 1px solid var(--border); }
+
+  /* ── MAIN PANEL ──────────────────────────────────────────── */
+  main { padding: 2rem; overflow-y: auto; }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%; gap: 1rem;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 3rem; }
+  .empty-state h2 { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+  .empty-state p  { font-size: .85rem; text-align: center; max-width: 300px; }
+
+  /* ── DETAIL VIEW ─────────────────────────────────────────── */
+  .detail-header { margin-bottom: 2rem; }
+  .detail-subject {
+    font-size: 1.5rem; font-weight: 800;
+    letter-spacing: -.03em; margin-bottom: .5rem;
+  }
+  .detail-meta {
+    font-size: .8rem; color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  .section { margin-bottom: 2rem; }
+  .section-title {
+    font-family: var(--font-mono); font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: .85rem;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .section-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── CARDS GRID ──────────────────────────────────────────── */
+  .info-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: .75rem; margin-bottom: 1.5rem;
+  }
+  .info-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem 1.1rem;
+  }
+  .info-card-label {
+    font-family: var(--font-mono); font-size: .68rem; color: var(--muted);
+    margin-bottom: .35rem; letter-spacing: .06em;
+  }
+  .info-card-value {
+    font-size: .9rem; font-weight: 600; word-break: break-all;
+  }
+  .info-card-value.accent  { color: var(--accent); }
+  .info-card-value.warn    { color: var(--warn); }
+
+  /* ── ATTENDEE CHIPS ───────────────────────────────────────── */
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .chip {
+    font-family: var(--font-mono); font-size: .75rem;
+    padding: .3rem .7rem; border-radius: 99px;
+    background: rgba(124,106,255,.12); border: 1px solid rgba(124,106,255,.25);
+    color: #a99fff;
+  }
+
+  /* ── SLOT LIST ────────────────────────────────────────────── */
+  .slot-list { display: flex; flex-direction: column; gap: .5rem; }
+  .slot-item {
+    display: flex; align-items: center; gap: .75rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: .7rem 1rem;
+    font-size: .85rem;
+    transition: border-color .15s;
+  }
+  .slot-item:hover { border-color: var(--accent); }
+  .slot-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+  }
+
+  /* ── CONFLICT LIST ────────────────────────────────────────── */
+  .conflict-item {
+    display: flex; align-items: center; gap: .75rem;
+    background: rgba(255,107,74,.06); border: 1px solid rgba(255,107,74,.2);
+    border-radius: 10px; padding: .7rem 1rem;
+    font-size: .85rem; margin-bottom: .5rem;
+  }
+  .conflict-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--warn); flex-shrink: 0;
+  }
+
+  /* ── REPLY BLOCK ──────────────────────────────────────────── */
+  .reply-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem 1.4rem;
+    font-size: .85rem; line-height: 1.7;
+    white-space: pre-wrap;
+    font-family: var(--font-mono);
+    color: #cdd0e0;
+    position: relative;
+  }
+  .copy-btn {
+    position: absolute; top: .75rem; right: .75rem;
+    font-family: var(--font-mono); font-size: .68rem;
+    padding: .25rem .6rem; border-radius: 6px;
+    background: var(--border); color: var(--muted);
+    border: none; cursor: pointer; transition: all .15s;
+  }
+  .copy-btn:hover { background: var(--accent); color: #000; }
+
+  /* ── SPINNER ──────────────────────────────────────────────── */
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(79,255,176,.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── LOADING OVERLAY ──────────────────────────────────────── */
+  #loading {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(11,13,18,.85); backdrop-filter: blur(8px);
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 1rem;
+  }
+  #loading.show { display: flex; }
+  #loading p { color: var(--muted); font-family: var(--font-mono); font-size: .85rem; }
+
+  /* ── STATUS BAR ───────────────────────────────────────────── */
+  #status-bar {
+    position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-mono); font-size: .78rem;
+    background: var(--surface); border: 1px solid var(--border);
+    padding: .4rem 1rem; border-radius: 99px;
+    color: var(--muted); z-index: 150;
+    opacity: 0; transition: opacity .3s;
+    pointer-events: none;
+  }
+  #status-bar.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner" style="width:36px;height:36px;border-width:3px;"></div>
+  <p id="loading-msg">Fetching emails from Gmail…</p>
+</div>
+
+<div id="status-bar"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">📅</div>
+    <div class="logo-text">Meeting<span>AI</span></div>
+  </div>
+  <div class="header-actions">
+    <span class="pill" id="last-refresh">Not synced</span>
+    <button class="btn btn-primary" id="refresh-btn" onclick="fetchEmails()">
+      Sync Gmail
+    </button>
+  </div>
+</header>
+
+<!-- LAYOUT -->
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="sidebar-label">Inbox · Meeting Requests</div>
+    <div id="email-list">
+      <div style="color:var(--muted);font-size:.82rem;padding:.5rem;">
+        Click "Sync Gmail" to load emails.
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main id="main-panel">
+    <div class="empty-state">
+      <div class="empty-icon">✉️</div>
+      <h2>No email selected</h2>
+      <p>Sync your Gmail inbox and select an email to see the AI analysis.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+let results = [];
+
+async function fetchEmails() {
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  showLoading('Fetching meeting emails from Gmail…');
+
+  try {
+    const res = await fetch('/api/process');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    results = await res.json();
+
+    renderSidebar(results);
+    document.getElementById('last-refresh').textContent =
+      'Last sync: ' + new Date().toLocaleTimeString();
+    showStatus(`✓ Processed ${results.length} email(s)`);
+  } catch(e) {
+    showStatus('✗ Error: ' + e.message);
+  } finally {
+    hideLoading();
+    btn.disabled = false;
+    btn.textContent = 'Sync Gmail';
+  }
+}
+
+function renderSidebar(data) {
+  const list = document.getElementById('email-list');
+  if (!data.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:.5rem;">No meeting emails found.</div>';
+    return;
+  }
+  list.innerHTML = data.map((r, i) => {
+    const isMeeting = r.is_meeting_request;
+    const hasConflict = r.has_conflict;
+    const badgeHtml = isMeeting
+      ? (hasConflict
+          ? '<span class="badge badge-conflict">⚠ Conflict</span>'
+          : '<span class="badge badge-ok">✓ Clear</span>')
+      : '<span class="badge badge-skip">Skipped</span>';
+
+    return `
+      <div class="email-card" onclick="showDetail(${i})" id="card-${i}">
+        <div class="card-subject">${esc(r.subject || '(no subject)')}</div>
+        <div class="card-from">${esc((r.from || '').replace(/<.*>/, '').trim())}</div>
+        ${badgeHtml}
+      </div>`;
+  }).join('');
+}
+
+function showDetail(idx) {
+  // Active state
+  document.querySelectorAll('.email-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-' + idx)?.classList.add('active');
+
+  const r = results[idx];
+  const main = document.getElementById('main-panel');
+
+  if (!r.is_meeting_request) {
+    main.innerHTML = `
+      <div class="detail-header">
+        <div class="detail-subject">${esc(r.subject)}</div>
+        <div class="detail-meta">${esc(r.from || '')}</div>
+      </div>
+      <div style="color:var(--muted);font-size:.88rem;padding:1rem 0;">
+        🔍 This email was not identified as a meeting request and was skipped.
+      </div>`;
+    return;
+  }
+
+  const attendees = (r.requested_attendees || [])
+    .map(a => `<span class="chip">${esc(a)}</span>`).join('');
+
+  const conflictHtml = (r.conflicts || []).length
+    ? (r.conflicts || []).slice(0,5).map(c => `
+        <div class="conflict-item">
+          <div class="conflict-dot"></div>
+          <div>
+            <div style="font-weight:600">${esc(c.summary || 'Unnamed event')}</div>
+            <div style="font-size:.75rem;color:var(--muted);font-family:var(--font-mono)">
+              ${esc((c.start||{}).dateTime || '')}
+            </div>
+          </div>
+        </div>`).join('')
+    : '<div style="color:var(--accent);font-size:.85rem;">✓ No conflicts found</div>';
+
+  const slotsHtml = (r.free_slots || []).length
+    ? `<div class="slot-list">${(r.free_slots||[]).map(s =>
+        `<div class="slot-item"><div class="slot-dot"></div>${esc(s.label)}</div>`
+      ).join('')}</div>`
+    : '<div style="color:var(--muted);font-size:.85rem;">No alternative slots computed.</div>';
+
+  const replyHtml = r.suggested_reply
+    ? `<div class="reply-box"><button class="copy-btn" onclick="copyReply(${idx})">Copy</button>${esc(r.suggested_reply)}</div>`
+    : '<div style="color:var(--muted);font-size:.85rem;">No reply generated.</div>';
+
+  main.innerHTML = `
+    <div class="detail-header">
+      <div class="detail-subject">${esc(r.subject)}</div>
+      <div class="detail-meta">${esc(r.from || '')} · ${esc(r.meeting_title || '')}</div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="info-card-label">Proposed Start</div>
+        <div class="info-card-value accent">${esc(fmtDate(r.proposed_start))}</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-label">Proposed End</div>
+        <div class="info-card-value accent">${esc(fmtDate(r.proposed_end))}</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-label">Conflict Status</div>
+        <div class="info-card-value ${r.has_conflict ? 'warn' : 'accent'}">
+          ${r.has_conflict ? '⚠ Conflict detected' : '✓ All clear'}
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Whose time is requested</div>
+      <div class="chips">${attendees || '<span style="color:var(--muted)">Unknown</span>'}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Calendar conflicts</div>
+      ${conflictHtml}
+    </div>
+
+    <div class="section">
+      <div class="section-title">Suggested free slots</div>
+      ${slotsHtml}
+    </div>
+
+    <div class="section">
+      <div class="section-title">AI-drafted reply</div>
+      ${replyHtml}
+    </div>
+  `;
+}
+
+function copyReply(idx) {
+  const r = results[idx];
+  navigator.clipboard.writeText(r.suggested_reply || '');
+  showStatus('Reply copied to clipboard ✓');
+}
+
+function fmtDate(iso) {
+  if (!iso) return 'Unknown';
+  try {
+    return new Date(iso).toLocaleString('en-IN', {
+      weekday: 'short', day: 'numeric', month: 'short',
+      hour: '2-digit', minute: '2-digit'
+    });
+  } catch { return iso; }
+}
+
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg;
+  document.getElementById('loading').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loading').classList.remove('show');
+}
+
+let statusTimer;
+function showStatus(msg) {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = msg;
+  bar.classList.add('show');
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => bar.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
